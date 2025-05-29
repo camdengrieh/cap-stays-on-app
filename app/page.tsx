@@ -6,7 +6,11 @@ import { useState, useRef, useCallback, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Slider } from "@/components/ui/slider"
-import { Upload, Download, RotateCcw, Move, Plus, Trash2, Copy } from "lucide-react"
+import { Upload, Download, RotateCcw, Move, Plus, Trash2, Copy, Share2, Eye, ImageIcon } from "lucide-react"
+import Link from "next/link"
+import { uploadImageToFeed } from "./actions"
+import UploadModal from "../components/upload-modal"
+import RecentFeed from "../components/recent-feed"
 
 interface Cap {
   id: string
@@ -33,6 +37,10 @@ export default function CapStaysOn() {
   const [selectedCapId, setSelectedCapId] = useState("cap-1")
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
+  const [isUploading, setIsUploading] = useState(false)
+  const [showUploadModal, setShowUploadModal] = useState(false)
+  const [uploadSuccess, setUploadSuccess] = useState(false)
+  const [hasUploadedToFeed, setHasUploadedToFeed] = useState(false)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -53,12 +61,19 @@ export default function CapStaysOn() {
       const reader = new FileReader()
       reader.onload = (e) => {
         const img = new Image()
-        img.onload = () => setUploadedImage(img)
+        img.onload = () => {
+          setUploadedImage(img)
+          setHasUploadedToFeed(false) // Reset upload status when new image is loaded
+        }
         img.src = e.target?.result as string
       }
       reader.readAsDataURL(file)
     }
   }, [])
+
+  const changeImage = () => {
+    fileInputRef.current?.click()
+  }
 
   const drawCanvas = useCallback(
     (showSelection = true) => {
@@ -241,6 +256,66 @@ export default function CapStaysOn() {
     drawCanvas(true)
   }
 
+  const shareToTwitter = () => {
+    if (!hasUploadedToFeed) {
+      alert("Please upload your creation to the community feed first before tweeting!")
+      return
+    }
+
+    try {
+      // Create Twitter intent URL
+      const text = "Just added the iconic cap to my image! 🧢 #capstayson"
+      const url = typeof window !== "undefined" ? `${window.location.protocol}//${window.location.host}/feed` : "/feed"
+      const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`
+
+      // Open in a new tab with fallback
+      try {
+        const newWindow = window.open(twitterUrl, "_blank", "noopener,noreferrer")
+        if (!newWindow) {
+          alert("Twitter sharing popup was blocked. Please allow popups or use the link: " + twitterUrl)
+        }
+      } catch (e) {
+        // Fallback if window.open fails
+        alert("Could not open Twitter. Please try again or copy this URL: " + twitterUrl)
+      }
+    } catch (error) {
+      console.error("Error sharing to Twitter:", error)
+      alert("There was an error sharing to Twitter. Please try again.")
+    }
+  }
+
+  const handleUploadToFeed = async (twitterHandle?: string) => {
+    if (!canvasRef.current || isUploading) return
+
+    setIsUploading(true)
+    setUploadSuccess(false)
+
+    try {
+      // Draw canvas without selection borders
+      drawCanvas(false)
+
+      const imageDataUrl = canvasRef.current.toDataURL("image/png")
+
+      // Redraw with selection borders for UI
+      drawCanvas(true)
+
+      // Upload to Vercel Blob via server action
+      const result = await uploadImageToFeed(imageDataUrl, caps.length, twitterHandle)
+
+      if (result.success) {
+        setUploadSuccess(true)
+        setHasUploadedToFeed(true)
+      } else {
+        alert("Failed to upload image. Please try again.")
+      }
+    } catch (error) {
+      console.error("Error uploading to feed:", error)
+      alert("There was an error uploading to the feed. Please try again.")
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
   const resetSelectedCap = () => {
     updateSelectedCap({
       position: { x: 50, y: 30 },
@@ -257,182 +332,231 @@ export default function CapStaysOn() {
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-teal-800 mb-2">Cap Stays On</h1>
           <p className="text-teal-600">Add the iconic teal cap to any image</p>
+          <div className="mt-4">
+            <Link href="/feed">
+              <Button variant="outline" className="mr-2">
+                <Eye className="w-4 h-4 mr-2" />
+                View Community Feed
+              </Button>
+            </Link>
+          </div>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-6">
-          {/* Upload Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Upload className="w-5 h-5" />
-                Upload Image
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div
-                className="border-2 border-dashed border-teal-300 rounded-lg p-8 text-center cursor-pointer hover:border-teal-400 transition-colors"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Upload className="w-12 h-12 text-teal-400 mx-auto mb-4" />
-                <p className="text-teal-600 mb-2">Click to upload an image</p>
-                <p className="text-sm text-gray-500">PNG, JPG, GIF up to 10MB</p>
-              </div>
-              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
-            </CardContent>
-          </Card>
-
-          {/* Controls Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Move className="w-5 h-5" />
-                Cap Controls
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Cap Management */}
-              <div>
-                <label className="text-sm font-medium mb-2 block">Caps ({caps.length})</label>
-                <div className="flex gap-2 mb-3">
-                  <Button onClick={addCap} size="sm" className="flex-1">
-                    <Plus className="w-4 h-4 mr-1" />
-                    Add
-                  </Button>
-                  <Button onClick={duplicateCap} size="sm" variant="outline" className="flex-1">
-                    <Copy className="w-4 h-4 mr-1" />
-                    Duplicate
-                  </Button>
-                  <Button
-                    onClick={deleteCap}
-                    size="sm"
-                    variant="outline"
-                    disabled={caps.length <= 1}
-                    className="flex-1"
-                  >
-                    <Trash2 className="w-4 h-4 mr-1" />
-                    Delete
-                  </Button>
-                </div>
-                <div className="grid grid-cols-3 gap-1">
-                  {caps.map((cap, index) => (
-                    <Button
-                      key={cap.id}
-                      onClick={() => setSelectedCapId(cap.id)}
-                      variant={cap.id === selectedCapId ? "default" : "outline"}
-                      size="sm"
-                      className="text-xs"
-                    >
-                      Cap {index + 1}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              {selectedCap && (
-                <>
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Size</label>
-                    <Slider
-                      value={[selectedCap.size]}
-                      onValueChange={(value) => updateSelectedCap({ size: value[0] })}
-                      max={80}
-                      min={10}
-                      step={1}
-                      className="w-full"
-                    />
-                    <div className="text-xs text-gray-500 mt-1">{selectedCap.size}%</div>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Rotation</label>
-                    <Slider
-                      value={[selectedCap.rotation]}
-                      onValueChange={(value) => updateSelectedCap({ rotation: value[0] })}
-                      max={180}
-                      min={-180}
-                      step={1}
-                      className="w-full"
-                    />
-                    <div className="text-xs text-gray-500 mt-1">{selectedCap.rotation}°</div>
-                  </div>
-
-                  <div className="flex gap-4">
-                    <div className="flex-1">
-                      <label className="text-sm font-medium mb-2 block">Flip Horizontal</label>
-                      <Button
-                        onClick={() => updateSelectedCap({ flipX: !selectedCap.flipX })}
-                        variant={selectedCap.flipX ? "default" : "outline"}
-                        className="w-full"
-                      >
-                        {selectedCap.flipX ? "Flipped" : "Normal"}
-                      </Button>
-                    </div>
-                    <div className="flex-1">
-                      <label className="text-sm font-medium mb-2 block">Flip Vertical</label>
-                      <Button
-                        onClick={() => updateSelectedCap({ flipY: !selectedCap.flipY })}
-                        variant={selectedCap.flipY ? "default" : "outline"}
-                        className="w-full"
-                      >
-                        {selectedCap.flipY ? "Flipped" : "Normal"}
-                      </Button>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              <div className="flex gap-2">
-                <Button onClick={resetSelectedCap} variant="outline" className="flex-1">
-                  <RotateCcw className="w-4 h-4 mr-2" />
-                  Reset
-                </Button>
-                <Button
-                  onClick={downloadImage}
-                  disabled={!uploadedImage}
-                  className="flex-1 bg-teal-600 hover:bg-teal-700"
+          {/* Upload Section - Only show when no image is uploaded */}
+          {!uploadedImage && (
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Upload className="w-5 h-5" />
+                  Upload Image
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div
+                  className="border-2 border-dashed border-teal-300 rounded-lg p-12 text-center cursor-pointer hover:border-teal-400 transition-colors"
+                  onClick={() => fileInputRef.current?.click()}
                 >
-                  <Download className="w-4 h-4 mr-2" />
-                  Download
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+                  <Upload className="w-16 h-16 text-teal-400 mx-auto mb-4" />
+                  <p className="text-teal-600 mb-2 text-lg">Click to upload an image</p>
+                  <p className="text-sm text-gray-500">PNG, JPG, GIF up to 10MB</p>
+                </div>
+                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Controls Section - Only show when image is uploaded */}
+          {uploadedImage && (
+            <>
+              {/* Canvas Section */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <span>Preview</span>
+                    <Button onClick={changeImage} variant="outline" size="sm">
+                      <ImageIcon className="w-4 h-4 mr-2" />
+                      Change Image
+                    </Button>
+                  </CardTitle>
+                  <p className="text-sm text-gray-600">
+                    Click on any cap to select it, then drag to reposition. Selected cap has a dashed border.
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex justify-center">
+                    <canvas
+                      ref={canvasRef}
+                      className="max-w-full max-h-80 border border-gray-200 rounded-lg cursor-move"
+                      onMouseDown={handleCanvasMouseDown}
+                      onMouseMove={handleCanvasMouseMove}
+                      onMouseUp={handleCanvasMouseUp}
+                      onMouseLeave={handleCanvasMouseUp}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Controls Section */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Move className="w-5 h-5" />
+                    Cap Controls
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Cap Management */}
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Caps ({caps.length})</label>
+                    <div className="flex gap-2 mb-3">
+                      <Button onClick={addCap} size="sm" className="flex-1">
+                        <Plus className="w-4 h-4 mr-1" />
+                        Add
+                      </Button>
+                      <Button onClick={duplicateCap} size="sm" variant="outline" className="flex-1">
+                        <Copy className="w-4 h-4 mr-1" />
+                        Duplicate
+                      </Button>
+                      <Button
+                        onClick={deleteCap}
+                        size="sm"
+                        variant="outline"
+                        disabled={caps.length <= 1}
+                        className="flex-1"
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" />
+                        Delete
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1">
+                      {caps.map((cap, index) => (
+                        <Button
+                          key={cap.id}
+                          onClick={() => setSelectedCapId(cap.id)}
+                          variant={cap.id === selectedCapId ? "default" : "outline"}
+                          size="sm"
+                          className="text-xs"
+                        >
+                          Cap {index + 1}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {selectedCap && (
+                    <>
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">Size</label>
+                        <Slider
+                          value={[selectedCap.size]}
+                          onValueChange={(value) => updateSelectedCap({ size: value[0] })}
+                          max={80}
+                          min={10}
+                          step={1}
+                          className="w-full"
+                        />
+                        <div className="text-xs text-gray-500 mt-1">{selectedCap.size}%</div>
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">Rotation</label>
+                        <Slider
+                          value={[selectedCap.rotation]}
+                          onValueChange={(value) => updateSelectedCap({ rotation: value[0] })}
+                          max={180}
+                          min={-180}
+                          step={1}
+                          className="w-full"
+                        />
+                        <div className="text-xs text-gray-500 mt-1">{selectedCap.rotation}°</div>
+                      </div>
+
+                      <div className="flex gap-4">
+                        <div className="flex-1">
+                          <label className="text-sm font-medium mb-2 block">Flip Horizontal</label>
+                          <Button
+                            onClick={() => updateSelectedCap({ flipX: !selectedCap.flipX })}
+                            variant={selectedCap.flipX ? "default" : "outline"}
+                            className="w-full"
+                          >
+                            {selectedCap.flipX ? "Flipped" : "Normal"}
+                          </Button>
+                        </div>
+                        <div className="flex-1">
+                          <label className="text-sm font-medium mb-2 block">Flip Vertical</label>
+                          <Button
+                            onClick={() => updateSelectedCap({ flipY: !selectedCap.flipY })}
+                            variant={selectedCap.flipY ? "default" : "outline"}
+                            className="w-full"
+                          >
+                            {selectedCap.flipY ? "Flipped" : "Normal"}
+                          </Button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <Button onClick={resetSelectedCap} variant="outline" className="flex-1">
+                        <RotateCcw className="w-4 h-4 mr-2" />
+                        Reset
+                      </Button>
+                      <Button onClick={downloadImage} className="flex-1 bg-teal-600 hover:bg-teal-700">
+                        <Download className="w-4 h-4 mr-2" />
+                        Download
+                      </Button>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => setShowUploadModal(true)}
+                        disabled={isUploading}
+                        variant="outline"
+                        className="flex-1"
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        Upload to Feed
+                      </Button>
+                      <Button
+                        onClick={shareToTwitter}
+                        disabled={!hasUploadedToFeed}
+                        className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400"
+                        title={!hasUploadedToFeed ? "Upload to feed first to enable tweeting" : ""}
+                      >
+                        <Share2 className="w-4 h-4 mr-2" />
+                        Tweet
+                      </Button>
+                    </div>
+
+                    {!hasUploadedToFeed && (
+                      <p className="text-xs text-gray-500 text-center">
+                        Upload to community feed to enable Twitter sharing
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
         </div>
 
-        {/* Canvas Section */}
-        {uploadedImage && (
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle>Preview</CardTitle>
-              <p className="text-sm text-gray-600">
-                Click on any cap to select it, then drag to reposition. Selected cap has a dashed border.
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="flex justify-center">
-                <canvas
-                  ref={canvasRef}
-                  className="max-w-full max-h-96 border border-gray-200 rounded-lg cursor-move"
-                  onMouseDown={handleCanvasMouseDown}
-                  onMouseMove={handleCanvasMouseMove}
-                  onMouseUp={handleCanvasMouseUp}
-                  onMouseLeave={handleCanvasMouseUp}
-                />
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* Recent Feed Section */}
+        {!uploadedImage && <RecentFeed />}
 
-        {!uploadedImage && (
-          <Card className="mt-6">
-            <CardContent className="py-12">
-              <div className="text-center text-gray-500">
-                <Upload className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                <p>Upload an image to get started</p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* Hidden file input */}
+        <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+
+        {/* Upload Modal */}
+        <UploadModal
+          isOpen={showUploadModal}
+          onClose={() => setShowUploadModal(false)}
+          onUpload={handleUploadToFeed}
+          onTweet={shareToTwitter}
+          isUploading={isUploading}
+          uploadSuccess={uploadSuccess}
+        />
 
         {/* Footer */}
         <footer className="mt-12 py-6 border-t border-teal-200">
