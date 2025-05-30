@@ -6,11 +6,9 @@ import { useState, useRef, useCallback, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Slider } from "@/components/ui/slider"
-import { Upload, Download, RotateCcw, Move, Plus, Trash2, Copy, Share2, Eye, ImageIcon } from "lucide-react"
+import { Upload, Download, RotateCcw, Move, Plus, Trash2, Copy, Share2, Eye, Loader2, ImageIcon } from "lucide-react"
 import Link from "next/link"
 import { uploadImageToFeed } from "./actions"
-import UploadModal from "../components/upload-modal"
-import RecentFeed from "../components/recent-feed"
 
 interface Cap {
   id: string
@@ -38,9 +36,6 @@ export default function CapStaysOn() {
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const [isUploading, setIsUploading] = useState(false)
-  const [showUploadModal, setShowUploadModal] = useState(false)
-  const [uploadSuccess, setUploadSuccess] = useState(false)
-  const [hasUploadedToFeed, setHasUploadedToFeed] = useState(false)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -61,10 +56,7 @@ export default function CapStaysOn() {
       const reader = new FileReader()
       reader.onload = (e) => {
         const img = new Image()
-        img.onload = () => {
-          setUploadedImage(img)
-          setHasUploadedToFeed(false) // Reset upload status when new image is loaded
-        }
+        img.onload = () => setUploadedImage(img)
         img.src = e.target?.result as string
       }
       reader.readAsDataURL(file)
@@ -257,15 +249,10 @@ export default function CapStaysOn() {
   }
 
   const shareToTwitter = () => {
-    if (!hasUploadedToFeed) {
-      alert("Please upload your creation to the community feed first before tweeting!")
-      return
-    }
-
     try {
-      // Create Twitter intent URL with the new format
-      const text = "#CapStaysOn - capstayson.fun"
-      const url = "https://capstayson.fun"
+      // Create Twitter intent URL
+      const text = "Just added the iconic cap to my image! 🧢 #capstayson"
+      const url = typeof window !== "undefined" ? `${window.location.protocol}//${window.location.host}/feed` : "/feed"
       const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`
 
       // Open in a new tab with fallback
@@ -284,11 +271,10 @@ export default function CapStaysOn() {
     }
   }
 
-  const handleUploadToFeed = async (twitterHandle?: string) => {
+  const uploadToFeed = async () => {
     if (!canvasRef.current || isUploading) return
 
     setIsUploading(true)
-    setUploadSuccess(false)
 
     try {
       // Draw canvas without selection borders
@@ -300,11 +286,10 @@ export default function CapStaysOn() {
       drawCanvas(true)
 
       // Upload to Vercel Blob via server action
-      const result = await uploadImageToFeed(imageDataUrl, caps.length, twitterHandle)
+      const result = await uploadImageToFeed(imageDataUrl, caps.length)
 
       if (result.success) {
-        setUploadSuccess(true)
-        setHasUploadedToFeed(true)
+        alert("Image uploaded to feed! 🎉 Check it out in the community feed.")
       } else {
         alert("Failed to upload image. Please try again.")
       }
@@ -510,31 +495,19 @@ export default function CapStaysOn() {
                     </div>
 
                     <div className="flex gap-2">
-                      <Button
-                        onClick={() => setShowUploadModal(true)}
-                        disabled={isUploading}
-                        variant="outline"
-                        className="flex-1"
-                      >
-                        <Upload className="w-4 h-4 mr-2" />
-                        Upload to Feed
+                      <Button onClick={uploadToFeed} disabled={isUploading} variant="outline" className="flex-1">
+                        {isUploading ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Upload className="w-4 h-4 mr-2" />
+                        )}
+                        {isUploading ? "Uploading..." : "Upload to Feed"}
                       </Button>
-                      <Button
-                        onClick={shareToTwitter}
-                        disabled={!hasUploadedToFeed}
-                        className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400"
-                        title={!hasUploadedToFeed ? "Upload to feed first to enable tweeting" : ""}
-                      >
+                      <Button onClick={shareToTwitter} className="flex-1 bg-blue-500 hover:bg-blue-600">
                         <Share2 className="w-4 h-4 mr-2" />
                         Tweet
                       </Button>
                     </div>
-
-                    {!hasUploadedToFeed && (
-                      <p className="text-xs text-gray-500 text-center">
-                        Upload to community feed to enable Twitter sharing
-                      </p>
-                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -542,21 +515,8 @@ export default function CapStaysOn() {
           )}
         </div>
 
-        {/* Recent Feed Section */}
-        {!uploadedImage && <RecentFeed />}
-
         {/* Hidden file input */}
         <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
-
-        {/* Upload Modal */}
-        <UploadModal
-          isOpen={showUploadModal}
-          onClose={() => setShowUploadModal(false)}
-          onUpload={handleUploadToFeed}
-          onTweet={shareToTwitter}
-          isUploading={isUploading}
-          uploadSuccess={uploadSuccess}
-        />
 
         {/* Footer */}
         <footer className="mt-12 py-6 border-t border-teal-200">

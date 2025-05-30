@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Heart, MessageCircle, Share2, Calendar } from "lucide-react"
 import { toggleLike, type FeedImage } from "../actions"
-import Link from "next/link"
 
 interface FeedClientProps {
   initialImages: FeedImage[]
@@ -45,8 +44,8 @@ export default function FeedClient({ initialImages }: FeedClientProps) {
 
   const shareImage = (imageUrl: string) => {
     try {
-      const text = "#CapStaysOn - capstayson.fun"
-      const url = "https://capstayson.fun"
+      const text = "Check out this awesome cap creation! 🧢 #capstayson"
+      const url = typeof window !== "undefined" ? `${window.location.protocol}//${window.location.host}/feed` : "/feed"
       const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`
 
       try {
@@ -83,16 +82,7 @@ export default function FeedClient({ initialImages }: FeedClientProps) {
                   <span className="text-white text-sm font-bold">🧢</span>
                 </div>
                 <div>
-                  {image.twitterHandle ? (
-                    <Link
-                      href={`/profile/${image.twitterHandle}`}
-                      className="font-semibold text-sm hover:text-teal-600 transition-colors"
-                    >
-                      @{image.twitterHandle}
-                    </Link>
-                  ) : (
-                    <p className="font-semibold text-sm">Anonymous Creator</p>
-                  )}
+                  <p className="font-semibold text-sm">Cap Creator</p>
                   <div className="flex items-center gap-2 text-xs text-gray-500">
                     <Calendar className="w-3 h-3" />
                     {formatDate(image.timestamp)}
@@ -105,17 +95,14 @@ export default function FeedClient({ initialImages }: FeedClientProps) {
             </div>
           </CardHeader>
           <CardContent className="pt-0">
-            {/* Image - Make it clickable to go to post */}
-            <Link href={`/post/${image.id}`}>
-              <div className="relative mb-4 rounded-lg overflow-hidden bg-gray-100 cursor-pointer group">
-                <img
-                  src={image.url || "/placeholder.svg"}
-                  alt="Cap creation"
-                  className="w-full h-auto max-h-96 object-contain group-hover:scale-105 transition-transform duration-200"
-                />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-200" />
-              </div>
-            </Link>
+            {/* Image */}
+            <div className="relative mb-4 rounded-lg overflow-hidden bg-gray-100">
+              <img
+                src={image.url || "/placeholder.svg"}
+                alt="Cap creation"
+                className="w-full h-auto max-h-96 object-contain"
+              />
+            </div>
 
             {/* Actions */}
             <div className="flex items-center justify-between">
@@ -132,12 +119,10 @@ export default function FeedClient({ initialImages }: FeedClientProps) {
                   {image.likes || 0}
                 </Button>
 
-                <Link href={`/post/${image.id}`}>
-                  <Button variant="ghost" size="sm" className="text-gray-500 hover:text-blue-500">
-                    <MessageCircle className="w-4 h-4 mr-1" />
-                    {image.comments?.length || 0}
-                  </Button>
-                </Link>
+                <Button variant="ghost" size="sm" className="text-gray-500 hover:text-blue-500">
+                  <MessageCircle className="w-4 h-4 mr-1" />
+                  Comment
+                </Button>
               </div>
 
               <Button
