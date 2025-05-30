@@ -45,8 +45,8 @@ export default function FeedClient({ initialImages }: FeedClientProps) {
 
   const shareImage = (imageUrl: string) => {
     try {
-      const text = "Check out this awesome cap creation! 🧢 #capstayson"
-      const url = typeof window !== "undefined" ? `${window.location.protocol}//${window.location.host}/feed` : "/feed"
+      const text = "#CapStaysOn - capstayson.fun"
+      const url = "https://capstayson.fun"
       const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`
 
       try {

@@ -43,10 +43,11 @@ export default function ProfileClient({ userProfile }: ProfileClientProps) {
     }
   }
 
+  // Update the shareImage function to use the new tweet format
   const shareImage = (imageUrl: string) => {
     try {
-      const text = `Check out this awesome cap creation by @${userProfile.handle}! 🧢 #capstayson`
-      const url = typeof window !== "undefined" ? `${window.location.protocol}//${window.location.host}/feed` : "/feed"
+      const text = "#CapStaysOn - capstayson.fun"
+      const url = "https://capstayson.fun"
       const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`
 
       try {

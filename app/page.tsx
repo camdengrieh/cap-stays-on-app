@@ -263,9 +263,9 @@ export default function CapStaysOn() {
     }
 
     try {
-      // Create Twitter intent URL
-      const text = "Just added the iconic cap to my image! 🧢 #capstayson"
-      const url = typeof window !== "undefined" ? `${window.location.protocol}//${window.location.host}/feed` : "/feed"
+      // Create Twitter intent URL with the new format
+      const text = "#CapStaysOn - capstayson.fun"
+      const url = "https://capstayson.fun"
       const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`
 
       // Open in a new tab with fallback
