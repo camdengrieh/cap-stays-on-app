@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Heart, MessageCircle, Share2, Calendar, Grid, List } from "lucide-react"
 import { toggleLike, type UserProfile } from "../../actions"
+import Link from "next/link"
 
 interface ProfileClientProps {
   userProfile: UserProfile
@@ -43,7 +44,6 @@ export default function ProfileClient({ userProfile }: ProfileClientProps) {
     }
   }
 
-  // Update the shareImage function to use the new tweet format
   const shareImage = (imageUrl: string) => {
     try {
       const text = "#CapStaysOn - capstayson.fun"
@@ -95,14 +95,16 @@ export default function ProfileClient({ userProfile }: ProfileClientProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {images.map((image) => (
             <Card key={image.id} className="overflow-hidden group hover:shadow-lg transition-shadow">
-              <div className="relative aspect-square bg-gray-100">
-                <img
-                  src={image.url || "/placeholder.svg"}
-                  alt="Cap creation"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-200" />
-              </div>
+              <Link href={`/post/${image.id}`}>
+                <div className="relative aspect-square bg-gray-100 cursor-pointer">
+                  <img
+                    src={image.url || "/placeholder.svg"}
+                    alt="Cap creation"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-200" />
+                </div>
+              </Link>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -130,9 +132,12 @@ export default function ProfileClient({ userProfile }: ProfileClientProps) {
                       {image.likes || 0}
                     </Button>
 
-                    <Button variant="ghost" size="sm" className="p-1 h-auto text-gray-500 hover:text-blue-500">
-                      <MessageCircle className="w-4 h-4 mr-1" />0
-                    </Button>
+                    <Link href={`/post/${image.id}`}>
+                      <Button variant="ghost" size="sm" className="p-1 h-auto text-gray-500 hover:text-blue-500">
+                        <MessageCircle className="w-4 h-4 mr-1" />
+                        {image.comments?.length || 0}
+                      </Button>
+                    </Link>
                   </div>
 
                   <Button
@@ -157,13 +162,13 @@ export default function ProfileClient({ userProfile }: ProfileClientProps) {
             <Card key={image.id} className="overflow-hidden">
               <CardContent className="p-0">
                 <div className="flex flex-col md:flex-row">
-                  <div className="md:w-48 h-48 bg-gray-100">
+                  <Link href={`/post/${image.id}`} className="md:w-48 h-48 bg-gray-100 cursor-pointer group">
                     <img
                       src={image.url || "/placeholder.svg"}
                       alt="Cap creation"
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                     />
-                  </div>
+                  </Link>
                   <div className="flex-1 p-6">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2 text-sm text-gray-500">
@@ -191,10 +196,12 @@ export default function ProfileClient({ userProfile }: ProfileClientProps) {
                           {image.likes || 0}
                         </Button>
 
-                        <Button variant="ghost" size="sm" className="text-gray-500 hover:text-blue-500">
-                          <MessageCircle className="w-4 h-4 mr-1" />
-                          Comment
-                        </Button>
+                        <Link href={`/post/${image.id}`}>
+                          <Button variant="ghost" size="sm" className="text-gray-500 hover:text-blue-500">
+                            <MessageCircle className="w-4 h-4 mr-1" />
+                            {image.comments?.length || 0}
+                          </Button>
+                        </Link>
                       </div>
 
                       <Button

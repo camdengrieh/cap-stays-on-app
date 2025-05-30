@@ -105,14 +105,17 @@ export default function FeedClient({ initialImages }: FeedClientProps) {
             </div>
           </CardHeader>
           <CardContent className="pt-0">
-            {/* Image */}
-            <div className="relative mb-4 rounded-lg overflow-hidden bg-gray-100">
-              <img
-                src={image.url || "/placeholder.svg"}
-                alt="Cap creation"
-                className="w-full h-auto max-h-96 object-contain"
-              />
-            </div>
+            {/* Image - Make it clickable to go to post */}
+            <Link href={`/post/${image.id}`}>
+              <div className="relative mb-4 rounded-lg overflow-hidden bg-gray-100 cursor-pointer group">
+                <img
+                  src={image.url || "/placeholder.svg"}
+                  alt="Cap creation"
+                  className="w-full h-auto max-h-96 object-contain group-hover:scale-105 transition-transform duration-200"
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-200" />
+              </div>
+            </Link>
 
             {/* Actions */}
             <div className="flex items-center justify-between">
@@ -129,10 +132,12 @@ export default function FeedClient({ initialImages }: FeedClientProps) {
                   {image.likes || 0}
                 </Button>
 
-                <Button variant="ghost" size="sm" className="text-gray-500 hover:text-blue-500">
-                  <MessageCircle className="w-4 h-4 mr-1" />
-                  Comment
-                </Button>
+                <Link href={`/post/${image.id}`}>
+                  <Button variant="ghost" size="sm" className="text-gray-500 hover:text-blue-500">
+                    <MessageCircle className="w-4 h-4 mr-1" />
+                    {image.comments?.length || 0}
+                  </Button>
+                </Link>
               </div>
 
               <Button

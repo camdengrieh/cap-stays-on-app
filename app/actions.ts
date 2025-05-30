@@ -3,13 +3,20 @@
 import { put, list } from "@vercel/blob"
 import { revalidatePath } from "next/cache"
 
+export interface Comment {
+  id: string
+  text: string
+  author?: string
+  timestamp: string
+}
+
 export interface FeedImage {
   id: string
   url: string
   timestamp: string
   caps: number
   likes?: number
-  comments?: number
+  comments?: Comment[]
   twitterHandle?: string
 }
 
@@ -43,7 +50,7 @@ export async function uploadImageToFeed(imageData: string, caps: number, twitter
       timestamp: new Date().toISOString(),
       caps,
       likes: 0,
-      comments: 0,
+      comments: [],
       twitterHandle: twitterHandle || undefined,
     }
 
@@ -96,6 +103,16 @@ export async function getFeedImages(): Promise<FeedImage[]> {
   } catch (error) {
     console.error("Error fetching feed images:", error)
     return []
+  }
+}
+
+export async function getPostById(id: string): Promise<FeedImage | null> {
+  try {
+    const allImages = await getFeedImages()
+    return allImages.find((image) => image.id === id) || null
+  } catch (error) {
+    console.error("Error fetching post:", error)
+    return null
   }
 }
 
@@ -181,10 +198,56 @@ export async function toggleLike(imageId: string) {
 
     revalidatePath("/feed")
     revalidatePath("/profile/[handle]", "page")
+    revalidatePath("/post/[id]", "page")
 
     return { success: true }
   } catch (error) {
     console.error("Error toggling like:", error)
     return { success: false }
+  }
+}
+
+export async function addComment(imageId: string, text: string, author?: string) {
+  try {
+    // Get existing feed metadata
+    const { blobs } = await list({ prefix: "feed-metadata.json" })
+    if (blobs.length === 0) return { success: false }
+
+    const response = await fetch(blobs[0].url)
+    let feedMetadata: FeedImage[] = await response.json()
+
+    // Create new comment
+    const newComment: Comment = {
+      id: Date.now().toString(),
+      text: text.trim(),
+      author: author || undefined,
+      timestamp: new Date().toISOString(),
+    }
+
+    // Find and update the image
+    feedMetadata = feedMetadata.map((image) => {
+      if (image.id === imageId) {
+        return {
+          ...image,
+          comments: [...(image.comments || []), newComment],
+        }
+      }
+      return image
+    })
+
+    // Save updated metadata
+    await put("feed-metadata.json", JSON.stringify(feedMetadata), {
+      access: "public",
+      contentType: "application/json",
+    })
+
+    revalidatePath("/feed")
+    revalidatePath("/profile/[handle]", "page")
+    revalidatePath("/post/[id]", "page")
+
+    return { success: true, comment: newComment }
+  } catch (error) {
+    console.error("Error adding comment:", error)
+    return { success: false, error: "Failed to add comment" }
   }
 }
